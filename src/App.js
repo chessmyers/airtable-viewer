@@ -1,27 +1,36 @@
 import React, {Component} from 'react';
-import {BrowserRouter as Router, Route, Switch} from "react-router-dom";
 import './App.css';
 
-import Navigation from './components/Navigation';
-import ListViewPage from './components/ListView';
-import CardViewPage from './components/CardView';
-import EntryViewPage from './components/EntryView';
-import LostPage from './components/Lost';
-import * as ROUTES from './constants/routes';
+import Controls from './components/Controls';
+import ListView from './components/ListView';
+import CardView from './components/CardView';
+import EntryView from './components/EntryView';
 
 class App extends Component {
     constructor(props) {
         super(props);
         this.state = {
-            data: []
+            allMovies: [],
+            showMovies: [],
+            view: 'card',
+            currentEntry: null
         };
 
         this.loadData = this.loadData.bind(this);
         this.fetchMoreRecords = this.fetchMoreRecords.bind(this);
+        this.changeView = this.changeView.bind(this);
+        this.updateShowMovies = this.updateShowMovies.bind(this);
+        this.showEntry = this.showEntry.bind(this);
     }
 
     componentDidMount() {
         this.loadData();
+    }
+
+    changeView(type) {
+        this.setState({
+            view: type
+        })
     }
 
     loadData() {
@@ -29,7 +38,7 @@ class App extends Component {
             .then((resp) => resp.json())
             .then((data) => {
                 this.setState({
-                    data: data.records
+                    allMovies: data.records
                 });
                 if (data.offset) {
                     this.fetchMoreRecords(data.offset);
@@ -45,41 +54,47 @@ class App extends Component {
             .then(resp => resp.json())
             .then(data => {
                 this.setState((prevState) => ({
-                    data: prevState.data.concat(data.records)
+                    allMovies: prevState.allMovies.concat(data.records),
+                    showMovies: prevState.allMovies.concat(data.records)
                 }));
-                console.log(this.state.data);
                 if (data.offset) {
                     this.fetchMoreRecords(data.offset);
                 }
             })
     }
 
+    updateShowMovies(movies) {
+        this.setState({
+            showMovies: movies
+        })
+    }
+
+    showEntry(entry) {
+        this.setState({
+            view: 'entry',
+            currentEntry: entry
+        })
+    }
+
     render() {
+        const view = () => {
+            if (this.state.view === 'card') {
+                return <CardView movies={this.state.showMovies} showEntry={this.showEntry}/>
+            }
+            if (this.state.view === 'list') {
+                return <ListView movies={this.state.showMovies} showEntry={this.showEntry}/>
+            }
+            if (this.state.view === 'entry') {
+                return <EntryView movie={this.state.currentEntry}/>
+            }
+        };
+
         return (
-            <Router>
-                <div>
-                    <Navigation/>
-                    <Switch>
-                        <Route exact path={ROUTES.LANDING} render={() => (
-                            <CardViewPage data={this.state.data} reload={this.loadData}/>
-                        )}/>
-                        <Route exact path={ROUTES.CARDVIEW} render={() => (
-                            <CardViewPage data={this.state.data} reload={this.loadData}/>
-                        )}/>
-                        <Route exact path={ROUTES.LISTVIEW} render={() => (
-                            <ListViewPage data={this.state.data} reload={this.loadData}/>
-                        )}/>
-                        <Route exact path={ROUTES.ENTRYVIEW} render={(props) => {
-                            let movieID = props.location.pathname.replace('/view-entry/', '');
-                            let movieToShow = this.state.data.filter((movie) => {
-                                return movie.id === movieID;
-                            })
-                            return <EntryViewPage movie={movieToShow}/>
-                        }}/>
-                        <Route component={LostPage}/>
-                    </Switch>
-                </div>
-            </Router>
+            <div>
+                <Controls movies={this.state.allMovies} changeView={this.changeView}
+                          reload={this.loadData} returnMovies={this.updateShowMovies}/>
+                {view()}
+            </div>
         );
     }
 }
