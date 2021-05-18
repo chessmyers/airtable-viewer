@@ -13,7 +13,8 @@ class EntryView extends Component {
         this.state = {
             movie: {},
             sales: [],
-            producer: null
+            producer: null,
+            producerContacts: []
         };
         this.loadSaleInfo = this.loadSaleInfo.bind(this);
     }
@@ -22,7 +23,7 @@ class EntryView extends Component {
         this.setState({
             movie: this.props.movie
         });
-        //console.log(this.props.movie);
+        console.log(this.props.movie);
         this.loadSaleInfo(this.props.movie.fields.Sales);
         this.loadProducer(this.props.movie.fields["Purchased From"][0]);
     }
@@ -61,9 +62,39 @@ class EntryView extends Component {
                 console.log(producer);
                 this.setState({
                     producer
+                }, () => {
+                    this.state.producer.fields.Contacts && this.loadProducerContacts();
                 })
             })
             .catch(err => {
+                console.log(err);
+            })
+    }
+
+    loadProducerContacts() {
+        const ids = this.state.producer.fields.Contacts;
+        let fetches = [];
+        ids.forEach((id) => {
+            fetches.push(fetch(`https://api.airtable.com/v0/app908XPeMBkOTZ1j/Contacts/${id}?api_key=keyO8hayVZ0xsDhDM`));
+        });
+        Promise.all(fetches)
+            .then((responses) => {
+                let jsons = [];
+                responses.forEach((response) => {
+                    jsons.push(response.json());
+                });
+                Promise.all(jsons)
+                    .then((contacts) => {
+                        console.log(contacts);
+                        this.setState({
+                            producerContacts: contacts
+                        })
+                    })
+                    .catch((err) => {
+                        console.log(err);
+                    })
+            })
+            .catch((err) => {
                 console.log(err);
             })
     }
@@ -106,12 +137,14 @@ class EntryView extends Component {
                                                         <span><b>Sale Term Start:</b> {sale.fields["Sale Term Start"] && sale.fields["Sale Term Start"]}  </span>
                                                         <span><b>Sale Term End:</b> {sale.fields["Sale Term End"] && sale.fields["Sale Term End"]}  </span>
                                                         <span><b>Buyer Logo:</b>
-                                                        <img src={sale.fields["Buyer Logo"] ? sale.fields["Buyer Logo"][0].url : ""}
-                                                             height="64px" width="48px" alt="Buyer Logo"/>
+                                                        <img
+                                                            src={sale.fields["Buyer Logo"] ? sale.fields["Buyer Logo"][0].url : ""}
+                                                            height="64px" width="48px" alt="Buyer Logo"/>
                                                     </span>
-                                                        <hr />
+                                                        <hr/>
                                                     </div>
-                                                )})
+                                                )
+                                            })
                                             :
                                             <div>No sales to show!</div>
                                     }
@@ -126,7 +159,7 @@ class EntryView extends Component {
                         {
                             this.state.movie !== {} ?
                                 <div className="padding">
-                                    <img src={this.state.movie.fields ? this.state.movie.fields.Poster[0].url : ""}
+                                    <img src={(this.state.movie.fields && this.state.movie.fields.Poster) ? this.state.movie.fields.Poster[0].url : ""}
                                          alt="Movie Poster" height="10%" width="10%"/>
                                     <h6><b>Year: </b>{this.state.movie.fields && this.state.movie.fields.Year}</h6>
                                     <h6><b>Synopsis
@@ -149,6 +182,32 @@ class EntryView extends Component {
                                     </h6>
                                     <h6><b>Cast: </b>{this.state.movie.fields && this.state.movie.fields.Cast}</h6>
                                     <h6><b>Producer: </b>{this.state.producer && this.state.producer.fields.Name}</h6>
+                                    <h6><b>Producer Contacts: </b>
+                                        <ul>
+                                            {(this.state.producerContacts && this.state.producerContacts.length > 0) ?
+                                                this.state.producerContacts.map((contact, index) => {
+                                                return <li key={index}>
+                                                    <span>{contact.fields.Name}</span><br/>
+
+                                                    {contact.fields.Title && <span>{contact.fields.Title}</span>}<br/>
+
+                                                    {contact.fields["Direct Line"] &&
+                                                    <span>{contact.fields["Direct Line"]}<br/></span>}
+
+                                                    {contact.fields.Email &&
+                                                    <a href={"mailto:".concat(contact.fields.Email)}>{contact.fields.Email}</a>}<br/>
+
+                                                    {contact.fields["Notes/Comments"] &&
+                                                    <span>{contact.fields["Notes/Comments"]}</span>}
+
+
+                                                </li>
+                                            })
+                                                :
+                                                <li>No contacts to show</li>
+                                            }
+                                        </ul>
+                                    </h6>
                                     <img
                                         src={this.state.movie.fields ? this.state.movie.fields["Producer Logo"][0].url : ""}
                                         alt="Producer Logo" height="10%" width="10%"/>
@@ -163,14 +222,16 @@ class EntryView extends Component {
                             this.state.movie !== {} ?
                                 <div className="padding">
                                     <h6>
-                                        <b>Genre(s): </b>{this.state.movie.fields && this.state.movie.fields.Genre.map((genre, index) => {
+                                        <b>Genre(s): </b>{(this.state.movie.fields && this.state.movie.fields.Genre) ? this.state.movie.fields.Genre.map((genre, index) => {
                                         return <span key={index}>{genre} </span>
-                                    })}</h6>
+                                    }) : <span>N/A</span>}</h6>
                                     <h6>
-                                        <b>Nationality: </b>{this.state.movie.fields && this.state.movie.fields.Nationality[0]}
+                                        <b>Nationality: </b>{(this.state.movie.fields && this.state.movie.fields.Nationality) ? this.state.movie.fields.Nationality[0]
+                                        :
+                                        <span>N/A</span>}
                                     </h6>
-                                    <h6><b>Other
-                                        Title(s): </b>{this.state.movie.fields && this.state.movie.fields["Other Titles"]}
+                                    <h6><b>Other Title(s): </b>{(this.state.movie.fields && this.state.movie.fields["Other Titles"]) ? this.state.movie.fields["Other Titles"]
+                                : <span>N/A</span>}
                                     </h6>
                                 </div>
                                 :
@@ -182,10 +243,17 @@ class EntryView extends Component {
                         {
                             this.state.movie !== {} ?
                                 <div className="padding">
-                                    <h6><b>IMDB Link:</b> <a
-                                        href={this.state.movie.fields ? this.state.movie.fields.iMDB : "#"}>{this.state.movie.fields && this.state.movie.fields.iMDB}</a>
+                                    <h6><b>IMDB Link: </b>
+                                        <a href={(this.state.movie.fields && this.state.movie.fields.iMDB) ?
+                                            this.state.movie.fields.iMDB : "#"} rel="noopener noreferrer"  target="_blank">
+                                        {this.state.movie.fields && this.state.movie.fields.iMDB}
+                                        </a>
                                     </h6>
-
+                                    <h6>
+                                        <b>Notes: </b>
+                                        <span>{(this.state.movie.fields && this.state.movie.fields.Notes) ?
+                                            this.state.movie.fields.Notes : <span>No notes to show</span>}</span>
+                                    </h6>
                                 </div>
                                 :
                                 {loadingView}
